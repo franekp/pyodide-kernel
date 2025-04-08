@@ -43,6 +43,8 @@ const kernel: JupyterFrontEndPlugin<void> = {
   ) => {
     const contentsManager = app.serviceManager.contents;
 
+    console.log("log");
+
     const config =
       JSON.parse(PageConfig.getOption('litePluginSettings') || '{}')[PLUGIN_ID] || {};
 
