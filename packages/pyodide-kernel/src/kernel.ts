@@ -28,7 +28,7 @@ export class PyodideKernel extends BaseKernel implements IKernel {
    * @param options The instantiation options for a new PyodideKernel
    */
   constructor(options: PyodideKernel.IOptions) {
-    console.log('HELLO FROM PYODIDE-KERNEL!!!');
+    console.log('HELLO FROM PYODIDE-KERNEL!!! 3');
     super(options);
     this._worker = this.initWorker(options);
     this._remoteKernel = this.initRemote(options);

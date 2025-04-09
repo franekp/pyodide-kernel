@@ -9,6 +9,25 @@ import { KernelMessage } from '@jupyterlab/services';
 
 import type { IPyodideWorkerKernel } from './tokens';
 
+class Timer {
+  lastTime: number;
+  constructor() {
+    this.lastTime = performance.now();
+  }
+
+  stage(name: string) {
+    const now = performance.now();
+    const elapsed = (now - this.lastTime) / 1000;
+    console.log(`KERNEL INIT: ${name} took ${elapsed.toFixed(2)}s`);
+    this.lastTime = now;
+  }
+
+  elapsed(): string {
+    const now = performance.now();
+    return ((now - this.lastTime) / 1000).toFixed(2) + 's';
+  }
+}
+
 export class PyodideRemoteKernel {
   constructor() {
     this._initialized = new Promise((resolve, reject) => {
@@ -30,12 +49,17 @@ export class PyodideRemoteKernel {
       this._driveName = '';
       this._localPath = options.location;
     }
-
+    const t = new Timer();
     await this.initRuntime(options);
+    t.stage("initRuntime()");
     await this.initFilesystem(options);
+    t.stage("initFilesystem()");
     await this.initPackageManager(options);
+    t.stage("initPackageManager()");
     await this.initKernel(options);
+    t.stage("initKernel()");
     await this.initGlobals(options);
+    t.stage("initGlobals()");
     this._initializer?.resolve();
   }
 
@@ -52,10 +76,14 @@ export class PyodideRemoteKernel {
       importScripts(pyodideUrl);
       loadPyodide = (self as any).loadPyodide;
     }
+    console.log('| |> options.loadPyodideOptions = ', options.loadPyodideOptions);
     this._pyodide = await loadPyodide({
       indexURL: indexUrl,
       ...options.loadPyodideOptions,
     });
+    console.log('| |> this._pyodide.loadedPackages = ', this._pyodide.loadedPackages);
+    const packageDirContent = this._pyodide.FS.readdir('/lib/python3.12/site-packages/');
+    console.log('| |> packageDirContent = ', packageDirContent);
   }
 
   protected async initPackageManager(
@@ -203,6 +231,8 @@ export class PyodideRemoteKernel {
    * @param content The incoming message with the code to execute.
    */
   async execute(content: any, parent: any) {
+    console.log("|E|> execute request: content = ", content);
+    const t = new Timer();
     await this.setup(parent);
 
     const publishExecutionResult = (
@@ -306,6 +336,11 @@ export class PyodideRemoteKernel {
 
     const res = await this._kernel.run(content.code);
     const results = this.formatResult(res);
+
+    console.log(`|E|> execute complete: ${results.status}; elapsed ${t.elapsed()}`);
+    console.log('| |> this._pyodide.loadedPackages = ', this._pyodide.loadedPackages);
+    const packageDirContent = this._pyodide.FS.readdir('/lib/python3.12/site-packages/');
+    console.log('| |> packageDirContent = ', packageDirContent);
 
     if (results['status'] === 'error') {
       publishExecutionError(results['ename'], results['evalue'], results['traceback']);
