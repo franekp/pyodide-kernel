@@ -29,6 +29,8 @@ class Timer {
 }
 
 export class PyodideRemoteKernel {
+  loadingTimer: Timer = new Timer();
+
   constructor() {
     this._initialized = new Promise((resolve, reject) => {
       this._initializer = { resolve, reject };
@@ -426,6 +428,7 @@ export class PyodideRemoteKernel {
 
     console.log(`|E|> EXECUTE COMPLETE: ${results.status} \n${content.code}`);
     console.log(`|E|> ELAPSED: ${t.elapsed()}`);
+    console.log(`|E|> TOTAL ELAPSED: ${this.loadingTimer.elapsed()} (since starting the kernel)`);
     // console.log(`|E|> execute complete: ${results.status}; elapsed ${t.elapsed()}`);
     // console.log('| |> this._pyodide.loadedPackages = ', JSON.parse(JSON.stringify(this._pyodide.loadedPackages)));
     // const packageDirContent = this._pyodide.FS.readdir('/lib/python3.12/site-packages/');
