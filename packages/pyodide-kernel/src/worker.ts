@@ -120,10 +120,13 @@ export class PyodideRemoteKernel {
 
     const packages = [
         'ssl', 'sqlite3', 'ipykernel', 'comm', 'pyodide_kernel', 'ipython',
-        'numpy', 'pandas', 'polars', 'scikit-learn', 'scipy', 'statsmodels',
-        'ipywidgets', 'plotly', 'plotly-express', 'seaborn', 'itables', 'sweetviz',
-        'tqdm', 'matplotlib', 'pillow', 'dotmap', 'Jinja2', 'pytz', 'nbformat',
-        'PyYAML', 'toml', 'requests', 'bokeh', 'ipyaggrid', 'mmh3',
+        'nbformat', 'numpy', 'pandas', 'polars', 'ipywidgets', 'plotly', 'plotly-express',
+        'tqdm', 'mmh3',
+
+        // the following packages are disabled for now; installing them crashed browser tab with SIGILL
+        // TODO: binsearch to find the culprit
+        // 'scikit-learn', 'scipy', 'statsmodels', 'seaborn', 'itables', 'sweetviz',
+        // 'matplotlib', 'pillow', 'dotmap', 'Jinja2', 'pytz', 'PyYAML', 'toml', 'requests', 'bokeh', 'ipyaggrid', 
     ]
     const toInstall = packages.filter(p => !preloaded.includes(p));
 
@@ -134,11 +137,17 @@ export class PyodideRemoteKernel {
         .replace('plotly-express', 'plotly.express')
         .replace('scikit-learn', 'sklearn')
         .replace('Jinja2', 'jinja2')
-        .replace('PyYAML', 'yaml');
+        .replace('PyYAML', 'yaml')
+        .replace('ipython', 'IPython');
 
       // import packages to pre-generate .pyc files, so that next time they are already available
       // this form of import doesn't pollute the global namespace
-      await this._pyodide.pyimport(importName)
+      try {
+        await this._pyodide.pyimport(importName)
+      } catch (e) {
+        console.error(`| |> ERROR importing module ${importName}`);
+        console.error(e);
+      }
     }
   }
 
