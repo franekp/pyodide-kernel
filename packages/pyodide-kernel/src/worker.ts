@@ -56,6 +56,8 @@ export class PyodideRemoteKernel {
     t.stage("initFilesystem()");
     await this.initPackageManager(options);
     t.stage("initPackageManager()");
+    await this.initPackages(options);
+    t.stage("initPackages()");
     await this.initKernel(options);
     t.stage("initKernel()");
     await this.initGlobals(options);
@@ -89,12 +91,8 @@ export class PyodideRemoteKernel {
   protected async initPackageManager(
     options: IPyodideWorkerKernel.IOptions,
   ): Promise<void> {
-    if (!this._options) {
-      throw new Error('Uninitialized');
-    }
-
     const { pipliteWheelUrl, disablePyPIFallback, pipliteUrls, loadPyodideOptions } =
-      this._options;
+      options;
 
     const preloaded = (loadPyodideOptions || {}).packages || [];
 
@@ -117,19 +115,35 @@ export class PyodideRemoteKernel {
     `);
   }
 
-  protected async initKernel(options: IPyodideWorkerKernel.IOptions): Promise<void> {
+  protected async initPackages(options: IPyodideWorkerKernel.IOptions): Promise<void> {
     const preloaded = (options.loadPyodideOptions || {}).packages || [];
 
-    const toLoad = ['ssl', 'sqlite3', 'ipykernel', 'comm', 'pyodide_kernel', 'ipython'];
+    const packages = [
+        'ssl', 'sqlite3', 'ipykernel', 'comm', 'pyodide_kernel', 'ipython',
+        'numpy', 'pandas', 'polars', 'scikit-learn', 'scipy', 'statsmodels',
+        'ipywidgets', 'plotly', 'plotly-express', 'seaborn', 'itables', 'sweetviz',
+        'tqdm', 'matplotlib', 'pillow', 'dotmap', 'Jinja2', 'pytz', 'nbformat',
+        'PyYAML', 'toml', 'requests', 'bokeh', 'ipyaggrid', 'mmh3',
+    ]
+    const toInstall = packages.filter(p => !preloaded.includes(p));
 
-    const scriptLines: string[] = [];
+    await this._pyodide.runPythonAsync(`await piplite.install(${JSON.stringify(toInstall)}, keep_going=True)`);
 
-    // use piplite for packages that weren't pre-loaded
-    for (const pkgName of toLoad) {
-      if (!preloaded.includes(pkgName)) {
-        scriptLines.push(`await piplite.install('${pkgName}', keep_going=True)`);
-      }
+    for (let packageName of packages) {
+      const importName = packageName
+        .replace('plotly-express', 'plotly.express')
+        .replace('scikit-learn', 'sklearn')
+        .replace('Jinja2', 'jinja2')
+        .replace('PyYAML', 'yaml');
+
+      // import packages to pre-generate .pyc files, so that next time they are already available
+      // this form of import doesn't pollute the global namespace
+      await this._pyodide.pyimport(importName)
     }
+  }
+
+  protected async initKernel(options: IPyodideWorkerKernel.IOptions): Promise<void> {
+    const scriptLines: string[] = [];
 
     // import the kernel
     scriptLines.push('import pyodide_kernel');
