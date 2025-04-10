@@ -205,6 +205,22 @@ export class PyodideKernel extends BaseKernel implements IKernel {
         );
         break;
       }
+      case 'initialization_prepared': {
+        ProgressBar.showPreInit();
+        break;
+      }
+      case 'initialization_started': {
+        if (msg.cacheIsPopulated) {
+          ProgressBar.showInitFromCache();
+        } else {
+          ProgressBar.showInitFromScratch();
+        }
+        break;
+      }
+      case 'initialization_complete': {
+        ProgressBar.hide();
+        break;
+      }
     }
   }
 
@@ -395,5 +411,98 @@ export namespace PyodideKernel {
      * The Jupyterlite content manager
      */
     contentsManager: Contents.IManager;
+  }
+}
+
+namespace ProgressBar {
+  const getHtml = (id: string, eta: number, description: string) => `
+    <style>
+      #${id} {
+        z-index: 1001;
+        position: absolute;
+        left: 0px; top: 0px;
+        right: 0px; bottom: 0px;
+
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #${id} .loading-bar-container {
+          width: 300px;
+          height: 40px;
+          border: 4px solid white;
+          background: transparent;
+          position: relative;
+          overflow: hidden;
+          padding: 4px;
+      }
+
+      #${id} .loading-bar {
+          width: 0%;
+          height: 100%;
+          background: white;
+          animation: kernelLoadingProgress ${eta}s linear 1;
+      }
+
+      #${id} .description {
+        font-weight: bold;
+        font-size: 18px;
+      }
+
+      @keyframes kernelLoadingProgress {
+          0% { width: 0%; }
+          100% { width: 100%; }
+      }
+    </style>
+
+    <div id="${id}">
+      <div class="loading-bar-container">
+          <div class="loading-bar"></div>
+      </div>
+      <div class="description">
+        ${description}
+      </div>
+    </div>
+  `;
+
+  export function showPreInit() {
+    const description = "Initializing Pyodide";
+    document.body.insertAdjacentHTML('beforeend', getHtml('kernel-preinit-overlay', 4, description));
+  }
+
+  export function showInitFromScratch() {
+    (((document.querySelector('#kernel-preinit-overlay') || {}) as any).style || {}).display = 'none';
+
+    const eta = 80;
+    const packages = ['ssl', 'sqlite3', 'ipykernel', 'comm', 'pyodide_kernel', 'ipython',
+        'nbformat', 'numpy', 'pandas', 'polars', 'ipywidgets', 'plotly', 'plotly-express',
+        'tqdm', 'mmh3'].join(', ');
+    const description = `
+      Setting up local Python environment (in-browser filesystem backed by IndexedDB) <br />
+      This is a one-time setup, the environment will be saved and reused <br />
+      Installing packages: ${packages}
+    `
+    document.body.insertAdjacentHTML(
+      'beforeend', getHtml('kernel-loading-progress-overlay', eta, description));
+  }
+
+  export function showInitFromCache() {
+    (((document.querySelector('#kernel-preinit-overlay') || {}) as any).style || {}).display = 'none';
+
+    const eta = 8;
+    const description = `
+      Using existing local Python environment <br />
+      Mounting IDBFS
+    `
+    document.body.insertAdjacentHTML(
+      'beforeend', getHtml('kernel-loading-progress-overlay', eta, description));
+  }
+
+  export function hide() {
+    (((document.querySelector('#kernel-loading-progress-overlay') || {}) as any).style || {}).display = 'none';
   }
 }

@@ -52,6 +52,11 @@ export class PyodideRemoteKernel {
       this._localPath = options.location;
     }
     const t = new Timer();
+
+    this._sendWorkerMessage({
+      type: 'initialization_prepared',
+    });
+
     await this.initRuntime(options);
     t.stage("initRuntime()");
     await this.mountJupyterLiteDriveFS(options);
@@ -59,6 +64,11 @@ export class PyodideRemoteKernel {
 
     const cacheIsPopulated = await this.mountPackageCacheFS();
     t.stage("mountPackageCacheFS()");
+
+    this._sendWorkerMessage({
+      type: 'initialization_started',
+      cacheIsPopulated,
+    });
 
     await this.initPackageManager(options, cacheIsPopulated);
     t.stage("initPackageManager()");
@@ -69,6 +79,10 @@ export class PyodideRemoteKernel {
     await this.initGlobals(options);
     t.stage("initGlobals()");
     this._initializer?.resolve();
+
+    this._sendWorkerMessage({
+      type: 'initialization_complete',
+    });
   }
 
   protected async initRuntime(options: IPyodideWorkerKernel.IOptions): Promise<void> {
