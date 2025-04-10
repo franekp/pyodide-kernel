@@ -47,7 +47,7 @@ export class PyodideCoincidentKernel extends PyodideRemoteKernel {
   /**
    * Setup custom Emscripten FileSystem
    */
-  protected async initFilesystem(
+  protected async mountJupyterLiteDriveFS(
     options: IPyodideWorkerKernel.IOptions,
   ): Promise<void> {
     if (options.mountDrive) {

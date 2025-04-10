@@ -52,11 +52,15 @@ export class PyodideRemoteKernel {
     const t = new Timer();
     await this.initRuntime(options);
     t.stage("initRuntime()");
-    await this.initFilesystem(options);
-    t.stage("initFilesystem()");
-    await this.initPackageManager(options);
+    await this.mountJupyterLiteDriveFS(options);
+    t.stage("mountJupyterLiteDriveFS()");
+
+    const cacheIsPopulated = await this.mountPackageCacheFS();
+    t.stage("mountPackageCacheFS()");
+
+    await this.initPackageManager(options, cacheIsPopulated);
     t.stage("initPackageManager()");
-    await this.initPackages(options);
+    await this.initPackages(options, cacheIsPopulated);
     t.stage("initPackages()");
     await this.initKernel(options);
     t.stage("initKernel()");
@@ -83,24 +87,48 @@ export class PyodideRemoteKernel {
       indexURL: indexUrl,
       ...options.loadPyodideOptions,
     });
-    console.log('| |> this._pyodide.loadedPackages = ', this._pyodide.loadedPackages);
+    console.log('| |> this._pyodide.loadedPackages = ', JSON.parse(JSON.stringify(this._pyodide.loadedPackages)));
     const packageDirContent = this._pyodide.FS.readdir('/lib/python3.12/site-packages/');
     console.log('| |> packageDirContent = ', packageDirContent);
   }
 
+  protected async mountPackageCacheFS(): Promise<boolean> {
+    this._pyodide.FS.mount(
+      this._pyodide.FS.filesystems.IDBFS, {},
+      '/lib/python3.12/site-packages/',
+    );
+
+    await this.syncPackageCacheFS(true);  // populate site-packages from IndexedDB
+
+    const packages = this._pyodide.FS.readdir('/lib/python3.12/site-packages/')
+      .filter(p => p != '.' && p != '..');
+    return packages.length > 0;
+  }
+
   protected async initPackageManager(
     options: IPyodideWorkerKernel.IOptions,
+    cacheIsPopulated: boolean,
   ): Promise<void> {
+
+    if (cacheIsPopulated) {
+      const readFile = this._pyodide.FS.readFile as any;
+      const loadedPackagesJsonStr: string = readFile(
+        '/lib/python3.12/site-packages/.loadedPackages.json', {encoding: 'utf8'},
+      );
+      const loadedPackagesJson: Record<string, string> = JSON.parse(loadedPackagesJsonStr);
+      Object.assign(this._pyodide.loadedPackages, loadedPackagesJson);
+    }
+
     const { pipliteWheelUrl, disablePyPIFallback, pipliteUrls, loadPyodideOptions } =
       options;
 
     const preloaded = (loadPyodideOptions || {}).packages || [];
 
-    if (!preloaded.includes('micropip')) {
+    if (!preloaded.includes('micropip') && !cacheIsPopulated) {
       await this._pyodide.loadPackage(['micropip']);
     }
 
-    if (!preloaded.includes('piplite')) {
+    if (!preloaded.includes('piplite') && !cacheIsPopulated) {
       await this._pyodide.runPythonAsync(`
       import micropip
       await micropip.install('${pipliteWheelUrl}', keep_going=True)
@@ -115,7 +143,13 @@ export class PyodideRemoteKernel {
     `);
   }
 
-  protected async initPackages(options: IPyodideWorkerKernel.IOptions): Promise<void> {
+  protected async initPackages(
+    options: IPyodideWorkerKernel.IOptions,
+    cacheIsPopulated: boolean,
+  ): Promise<void> {
+    if (cacheIsPopulated) {
+      return
+    }
     const preloaded = (options.loadPyodideOptions || {}).packages || [];
 
     const packages = [
@@ -143,12 +177,22 @@ export class PyodideRemoteKernel {
       // import packages to pre-generate .pyc files, so that next time they are already available
       // this form of import doesn't pollute the global namespace
       try {
-        await this._pyodide.pyimport(importName)
+        await this._pyodide.pyimport(importName);
       } catch (e) {
         console.error(`| |> ERROR importing module ${importName}`);
         console.error(e);
       }
     }
+
+    // save this._pyodide.loadedPackages, so that when we mount pre-populated site-packages
+    // dir next time (mountPackageCacheFS), pyodide will know that these packages have already
+    // been loaded
+    this._pyodide.FS.writeFile(
+      '/lib/python3.12/site-packages/.loadedPackages.json',
+      JSON.stringify(this._pyodide.loadedPackages),
+    );
+
+    await this.syncPackageCacheFS(false);  // save site-packages to IndexedDB
   }
 
   protected async initKernel(options: IPyodideWorkerKernel.IOptions): Promise<void> {
@@ -178,7 +222,7 @@ export class PyodideRemoteKernel {
   /**
    * Setup custom Emscripten FileSystem
    */
-  protected async initFilesystem(
+  protected async mountJupyterLiteDriveFS(
     options: IPyodideWorkerKernel.IOptions,
   ): Promise<void> {
     if (options.mountDrive) {
@@ -200,6 +244,15 @@ export class PyodideRemoteKernel {
       FS.chdir(mountpoint);
       this._driveFS = driveFS;
     }
+  }
+
+  protected syncPackageCacheFS(populate: boolean): Promise<void> {
+    return new Promise((resolve, reject) => {
+      (this._pyodide.FS.syncfs as any)(populate, (err: any) => {
+        if (err) reject(err);
+        else resolve(undefined);
+      });
+    });
   }
 
   /**
@@ -361,7 +414,7 @@ export class PyodideRemoteKernel {
     const results = this.formatResult(res);
 
     console.log(`|E|> execute complete: ${results.status}; elapsed ${t.elapsed()}`);
-    console.log('| |> this._pyodide.loadedPackages = ', this._pyodide.loadedPackages);
+    console.log('| |> this._pyodide.loadedPackages = ', JSON.parse(JSON.stringify(this._pyodide.loadedPackages)));
     const packageDirContent = this._pyodide.FS.readdir('/lib/python3.12/site-packages/');
     console.log('| |> packageDirContent = ', packageDirContent);
 
