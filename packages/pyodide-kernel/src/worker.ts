@@ -82,17 +82,26 @@ export class PyodideRemoteKernel {
       importScripts(pyodideUrl);
       loadPyodide = (self as any).loadPyodide;
     }
-    console.log('| |> options.loadPyodideOptions = ', options.loadPyodideOptions);
+    // console.log('| |> options.loadPyodideOptions = ', options.loadPyodideOptions);
     this._pyodide = await loadPyodide({
       indexURL: indexUrl,
       ...options.loadPyodideOptions,
     });
-    console.log('| |> this._pyodide.loadedPackages = ', JSON.parse(JSON.stringify(this._pyodide.loadedPackages)));
-    const packageDirContent = this._pyodide.FS.readdir('/lib/python3.12/site-packages/');
-    console.log('| |> packageDirContent = ', packageDirContent);
+    // console.log('| |> this._pyodide.loadedPackages = ', JSON.parse(JSON.stringify(this._pyodide.loadedPackages)));
+    // const packageDirContent = this._pyodide.FS.readdir('/lib/python3.12/site-packages/');
+    // console.log('| |> packageDirContent = ', packageDirContent);
   }
 
   protected async mountPackageCacheFS(): Promise<boolean> {
+    // console.log('queuePersist = ', this._pyodide.FS.filesystems.IDBFS.queuePersist);
+    // console.log('descr(queuePersist) = ', Object.getOwnPropertyDescriptor(this._pyodide.FS.filesystems.IDBFS, "queuePersist"));
+    // console.log('descr(queuePersist).writable = ', Object.getOwnPropertyDescriptor(this._pyodide.FS.filesystems.IDBFS, "queuePersist")?.writable);
+    // console.log('descr(queuePersist).configurable = ',
+    //  Object.getOwnPropertyDescriptor(this._pyodide.FS.filesystems.IDBFS, "queuePersist")?.configurable);
+    // console.log('IDBFS = ', this._pyodide.FS.filesystems.IDBFS);
+    this._pyodide.FS.filesystems.IDBFS.queuePersist = () => {};
+    // console.log('queuePersist = ', this._pyodide.FS.filesystems.IDBFS.queuePersist);
+    // console.log('IDBFS = ', this._pyodide.FS.filesystems.IDBFS);
     this._pyodide.FS.mount(
       this._pyodide.FS.filesystems.IDBFS, {},
       '/lib/python3.12/site-packages/',
@@ -137,6 +146,8 @@ export class PyodideRemoteKernel {
 
     // get piplite early enough to impact pyodide-kernel dependencies
     await this._pyodide.runPythonAsync(`
+      import sys
+      sys.dont_write_bytecode = False
       import piplite.piplite
       piplite.piplite._PIPLITE_DISABLE_PYPI = ${disablePyPIFallback ? 'True' : 'False'}
       piplite.piplite._PIPLITE_URLS = ${JSON.stringify(pipliteUrls)}
@@ -307,7 +318,7 @@ export class PyodideRemoteKernel {
    * @param content The incoming message with the code to execute.
    */
   async execute(content: any, parent: any) {
-    console.log("|E|> execute request: content = ", content);
+    console.log(`|E|> EXECUTE REQUEST: \n${content.code}`);
     const t = new Timer();
     await this.setup(parent);
 
@@ -413,10 +424,12 @@ export class PyodideRemoteKernel {
     const res = await this._kernel.run(content.code);
     const results = this.formatResult(res);
 
-    console.log(`|E|> execute complete: ${results.status}; elapsed ${t.elapsed()}`);
-    console.log('| |> this._pyodide.loadedPackages = ', JSON.parse(JSON.stringify(this._pyodide.loadedPackages)));
-    const packageDirContent = this._pyodide.FS.readdir('/lib/python3.12/site-packages/');
-    console.log('| |> packageDirContent = ', packageDirContent);
+    console.log(`|E|> EXECUTE COMPLETE: ${results.status} \n${content.code}`);
+    console.log(`|E|> ELAPSED: ${t.elapsed()}`);
+    // console.log(`|E|> execute complete: ${results.status}; elapsed ${t.elapsed()}`);
+    // console.log('| |> this._pyodide.loadedPackages = ', JSON.parse(JSON.stringify(this._pyodide.loadedPackages)));
+    // const packageDirContent = this._pyodide.FS.readdir('/lib/python3.12/site-packages/');
+    // console.log('| |> packageDirContent = ', packageDirContent);
 
     if (results['status'] === 'error') {
       publishExecutionError(results['ename'], results['evalue'], results['traceback']);
