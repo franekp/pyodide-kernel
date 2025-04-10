@@ -432,9 +432,10 @@ namespace ProgressBar {
       }
 
       #${id} .loading-bar-container {
-          width: 300px;
-          height: 40px;
+          width: 400px;
+          height: 30px;
           border: 4px solid white;
+          margin: 20px;
           background: transparent;
           position: relative;
           overflow: hidden;
@@ -445,7 +446,7 @@ namespace ProgressBar {
           width: 0%;
           height: 100%;
           background: white;
-          animation: kernelLoadingProgress ${eta}s linear 1;
+          animation: kernelLoadingProgress ${eta}s linear 1 forwards;
       }
 
       #${id} .description {
@@ -471,7 +472,7 @@ namespace ProgressBar {
 
   export function showPreInit() {
     const description = "Initializing Pyodide";
-    document.body.insertAdjacentHTML('beforeend', getHtml('kernel-preinit-overlay', 4, description));
+    document.body.insertAdjacentHTML('beforeend', getHtml('kernel-preinit-overlay', 6, description));
   }
 
   export function showInitFromScratch() {
@@ -493,7 +494,7 @@ namespace ProgressBar {
   export function showInitFromCache() {
     (((document.querySelector('#kernel-preinit-overlay') || {}) as any).style || {}).display = 'none';
 
-    const eta = 8;
+    const eta = 6;
     const description = `
       Using existing local Python environment <br />
       Mounting IDBFS
