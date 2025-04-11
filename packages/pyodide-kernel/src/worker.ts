@@ -126,7 +126,7 @@ export class PyodideRemoteKernel {
     await this.syncPackageCacheFS(true);  // populate site-packages from IndexedDB
 
     const packages = this._pyodide.FS.readdir('/lib/python3.12/site-packages/')
-      .filter(p => p != '.' && p != '..');
+      .filter(p => p !== '.' && p !== '..');
     return packages.length > 0;
   }
 
