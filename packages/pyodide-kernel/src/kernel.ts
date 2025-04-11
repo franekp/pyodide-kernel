@@ -418,17 +418,25 @@ namespace ProgressBar {
   const getHtml = (id: string, eta: number, description: string) => `
     <style>
       #${id} {
-        z-index: 1001;
+        z-index: 1000;
         position: absolute;
         left: 0px; top: 0px;
         right: 0px; bottom: 0px;
 
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.2);
         color: white;
+      }
+
+      #${id} .loading-bar-wrapper, #${id} {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+      }
+
+      #${id} .loading-bar-wrapper {
+        padding: 20px;
+        background: rgb(50, 50, 50);
       }
 
       #${id} .loading-bar-container {
@@ -450,7 +458,6 @@ namespace ProgressBar {
       }
 
       #${id} .description {
-        font-weight: bold;
         font-size: 18px;
       }
 
@@ -461,11 +468,13 @@ namespace ProgressBar {
     </style>
 
     <div id="${id}">
-      <div class="loading-bar-container">
-          <div class="loading-bar"></div>
-      </div>
-      <div class="description">
-        ${description}
+      <div class="loading-bar-wrapper">
+        <div class="loading-bar-container">
+            <div class="loading-bar"></div>
+        </div>
+        <div class="description">
+          ${description}
+        </div>
       </div>
     </div>
   `;
@@ -479,14 +488,13 @@ namespace ProgressBar {
     (((document.querySelector('#kernel-preinit-overlay') || {}) as any).style || {}).display = 'none';
 
     const eta = 80;
-    const packages = ['ssl', 'sqlite3', 'ipykernel', 'comm', 'pyodide_kernel', 'ipython',
-        'nbformat', 'numpy', 'pandas', 'polars', 'ipywidgets', 'plotly', 'plotly-express',
-        'tqdm', 'mmh3'].join(', ');
+    const packages1 = ['ssl', 'sqlite3', 'ipykernel', 'comm', 'pyodide_kernel', 'ipython', 'nbformat'].join(', ');
+    const packages2 = ['numpy', 'pandas', 'polars', 'ipywidgets', 'plotly', 'plotly-express', 'tqdm', 'mmh3'].join(', ');
     const description = `
-      Setting up local Python environment (in-browser filesystem backed by IndexedDB) <br />
-      This is a one-time setup, the environment will be saved and reused <br />
-      Installing packages: ${packages}
-    `
+      Installing packages: ${packages1}, <br />
+      ${packages2}. <br />
+      This is a one-time setup, the environment will be saved to IndexedDB and reused
+    `;
     document.body.insertAdjacentHTML(
       'beforeend', getHtml('kernel-loading-progress-overlay', eta, description));
   }
@@ -496,8 +504,8 @@ namespace ProgressBar {
 
     const eta = 6;
     const description = `
-      Using existing local Python environment <br />
-      Mounting IDBFS
+      Found saved environment in IndexedDB <br />
+      Mounting IDBFS as /lib/python3.12/site-packages/
     `
     document.body.insertAdjacentHTML(
       'beforeend', getHtml('kernel-loading-progress-overlay', eta, description));
