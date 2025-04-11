@@ -487,7 +487,7 @@ namespace ProgressBar {
   export function showInitFromScratch() {
     (((document.querySelector('#kernel-preinit-overlay') || {}) as any).style || {}).display = 'none';
 
-    const eta = 80;
+    const eta = 50;
     const packages1 = ['ssl', 'sqlite3', 'ipykernel', 'comm', 'pyodide_kernel', 'ipython', 'nbformat'].join(', ');
     const packages2 = ['numpy', 'pandas', 'polars', 'ipywidgets', 'plotly', 'plotly-express', 'tqdm', 'mmh3'].join(', ');
     const description = `
